@@ -1,0 +1,175 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>HealthConnect Enterprise | National Integrated Health Core</title>
+    <link rel="stylesheet" href="styles.css?v=13.0">
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        .role-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 1rem; margin: 1.5rem 0; }
+        .role-card { padding: 1.25rem; border: 2px solid var(--border); border-radius: 20px; text-align: center; cursor: pointer; transition: var(--transition); background: #fff; }
+        .role-card.active { border-color: var(--primary); background: var(--primary-soft); color: var(--primary-deep); }
+        .lang-select { position: absolute; top: 1.5rem; right: 1.5rem; z-index: 2005; }
+        .lang-dropdown { background: rgba(255,255,255,0.9); backdrop-filter: blur(20px); border: 2.5px solid #fff; border-radius: 14px; padding: 0.6rem 1rem; font-weight: 800; font-size: 0.85rem; cursor: pointer; box-shadow: var(--shadow-md); color: var(--primary-deep); }
+        
+        /* v13 Form Styles */
+        .pro-form-group { margin-top: 2rem; padding: 2rem; background: var(--bg-sub); border-radius: 24px; border: 1.5px solid var(--border); }
+        .pro-form-group input, .pro-form-group textarea { width: 100%; margin-bottom: 1rem; padding: 1rem; border-radius: 12px; border: 1.5px solid var(--border); }
+        .pro-form-group button { width: 100%; }
+
+        .permission-card { display: flex; justify-content: space-between; align-items: center; padding: 1.25rem; background: #fff; border-radius: 18px; border: 1.5px solid var(--border); margin-bottom: 0.75rem; transition: var(--transition); }
+        .permission-card:hover { border-color: var(--primary); }
+        .toggle-switch { width: 50px; height: 26px; background: #cbd5e1; border-radius: 20px; position: relative; cursor: pointer; transition: 0.3s; }
+        .toggle-switch.active { background: var(--primary); }
+        .toggle-switch::after { content: ''; position: absolute; top: 3px; left: 3px; width: 20px; height: 20px; background: #fff; border-radius: 50%; transition: 0.3s; }
+        .toggle-switch.active::after { left: 27px; }
+    </style>
+</head>
+<body>
+
+    <!-- AUTHENTICATION CORE -->
+    <div id="auth-overlay" class="auth-fullscreen">
+        <div class="lang-select">
+            <select id="language-registry" class="lang-dropdown" onchange="changeLanguage(this.value)">
+                <option value="en">English (Master)</option>
+                <option value="te">తెలుగు (Telugu)</option>
+                <option value="hi">హిन्दी (Hindi)</option>
+                <option value="ta">தமிழ் (Tamil)</option>
+                <option value="kn">ಕನ್ನಡ (Kannada)</option>
+                <option value="ml">മലയാളം (Malayalam)</option>
+                <option value="mr">మరాఠీ (Marathi)</option>
+                <option value="bn">বাংলা (Bengali)</option>
+                <option value="gu">ગુજરાતી (Gujarati)</option>
+                <option value="pa">ਪੰਜਾਬੀ (Punjabi)</option>
+            </select>
+        </div>
+
+        <div class="auth-visual-bg">
+            <div class="mesh-blob" style="top: -100px; left: -100px; background: hsla(161,71%,90%,1); width: 800px; height: 800px;"></div>
+            <div class="mesh-blob" style="bottom: -100px; right: -100px; background: hsla(222,47%,91%,1); width: 600px; height: 600px;"></div>
+        </div>
+
+        <div class="auth-master-card">
+            <div class="official-seal">
+                <img src="https://upload.wikimedia.org/wikipedia/commons/5/55/Emblem_of_India.svg" style="height: 52px;">
+                <div style="border-left: 2px solid var(--primary); padding-left: 1.5rem;">
+                    <p style="font-weight: 800; font-size: 0.9rem;" data-i18n="ministry">MINISTRY OF HEALTH &<br>FAMILY WELFARE</p>
+                    <p style="font-size: 0.65rem; color: var(--text-muted); text-transform: uppercase; font-weight: 800; margin-top: 0.2rem;" data-i18n="gov">GOVERNMENT OF INDIA</p>
+                </div>
+            </div>
+
+            <div id="login-view">
+                <h1 class="heading-font" style="font-size: 2.5rem; margin-bottom: 0.5rem;" data-i18n="welcome">National Gateway</h1>
+                <p style="color: var(--text-dim); margin-bottom: 2.5rem;" data-i18n="sub_welcome">Integrated Hub for Citizens and Professionals.</p>
+                
+                <div class="header-search" style="margin-bottom: 1.5rem; width: 100%;">
+                    <label class="nav-label" data-i18n="id_label">Verification Identifier</label>
+                    <input type="text" id="mobile-input" placeholder="91-XXXX-XXXX-XXXX">
+                </div>
+                
+                <button class="btn-primary" style="width: 100%; height: 64px;" onclick="sendOTP()">
+                    <span data-i18n="login_btn">Request Access</span>
+                    <i data-lucide="arrow-right"></i>
+                </button>
+
+                <p style="text-align: center; margin-top: 2rem;">
+                    <span data-i18n="no_account">New Repository?</span> 
+                    <a href="#" onclick="toggleAuthView('register')" style="color: var(--primary); font-weight: 800; text-decoration: none;" data-i18n="register_link">Create National ID</a>
+                </p>
+            </div>
+
+            <div id="otp-step" style="display: none;">
+                <h2 class="heading-font" style="margin-bottom: 2rem;" data-i18n="verify_title">Verification Key</h2>
+                <div class="header-search" style="margin-bottom: 2rem; width: 100%;">
+                    <input type="text" id="otp-input" style="text-align: center; letter-spacing: 1.5rem; font-size: 2rem;" placeholder="······">
+                </div>
+                <button class="btn-primary" style="width: 100%; height: 64px;" onclick="verifyOTP()" data-i18n="verify_btn">Proceed into Vault</button>
+            </div>
+
+            <div id="register-view" style="display: none;">
+                <h1 class="heading-font" style="font-size: 2.25rem; margin-bottom: 2rem;" data-i18n="reg_title">Universal Enrollment</h1>
+                <div class="role-grid">
+                    <div class="role-card active" onclick="selectRole('patient', this)">
+                        <i data-lucide="user"></i><span data-i18n="role_patient">Citizen</span>
+                    </div>
+                    <div class="role-card" onclick="selectRole('doctor', this)">
+                        <i data-lucide="stethoscope"></i><span data-i18n="role_doctor">Doctor</span>
+                    </div>
+                    <div class="role-card" onclick="selectRole('lab', this)">
+                        <i data-lucide="microscope"></i><span data-i18n="role_lab">Laboratory</span>
+                    </div>
+                    <div class="role-card" onclick="selectRole('pharmacy', this)">
+                        <i data-lucide="pill"></i><span data-i18n="role_pharmacy">Pharmacy</span>
+                    </div>
+                </div>
+                <div class="header-search" style="margin-bottom: 1rem; width: 100%;">
+                    <input type="text" id="reg-name" placeholder="Legal Full Name">
+                </div>
+                <button class="btn-primary" style="width: 100%; height: 56px;" onclick="handleRegistration()" data-i18n="enroll_btn">Register Identity</button>
+                <p style="text-align: center; margin-top: 1.5rem;"><a href="#" onclick="toggleAuthView('login')" data-i18n="back_login">Back to Gateway</a></p>
+            </div>
+        </div>
+    </div>
+
+    <!-- INTEGRATED APP WRAPPER -->
+    <div class="app-wrapper">
+        <aside class="sidebar">
+            <a href="#" class="sidebar-logo">
+                <i data-lucide="shield-check" size="32"></i>
+                <span style="letter-spacing: 2px;">HEALTHCONNECT</span>
+            </a>
+            <div class="nav-group">
+                <span class="nav-label" data-i18n="nav_gov">Citizen Repository</span>
+                <a href="#" class="nav-item active" onclick="switchTab('dashboard')"><i data-lucide="layout-grid"></i><span data-i18n="tab_dash">My Dashboard</span></a>
+                <a href="#" class="nav-item" onclick="switchTab('records')"><i data-lucide="folder-heart"></i><span data-i18n="tab_records">My Health Vault</span></a>
+                <a href="#" class="nav-item" onclick="switchTab('documents')"><i data-lucide="file-text"></i><span data-i18n="tab_docs">Documents Hub</span></a>
+                <a href="#" class="nav-item" onclick="switchTab('identity')"><i data-lucide="venn-diagram"></i><span data-i18n="tab_identity">Legal Identity</span></a>
+                <a href="#" class="nav-item" onclick="switchTab('ai')"><i data-lucide="cpu"></i><span data-i18n="tab_ai">AI Clinician</span></a>
+                <a href="#" class="nav-item" onclick="switchTab('consent')"><i data-lucide="user-check"></i><span data-i18n="tab_privacy">Security & Privacy</span></a>
+            </div>
+            <div class="nav-group">
+                <span class="nav-label" data-i18n="nav_pro">Professional Terminals</span>
+                <a href="#" class="nav-item" onclick="switchRole('doctor')"><i data-lucide="stethoscope"></i><span data-i18n="tab_dr">Clinician Hub</span></a>
+                <a href="#" class="nav-item" onclick="switchRole('lab')"><i data-lucide="microscope"></i><span data-i18n="tab_lab">Diagnostic Node</span></a>
+                <a href="#" class="nav-item" onclick="switchRole('pharmacy')"><i data-lucide="pill"></i><span data-i18n="tab_pharmacy">Pharmacy Node</span></a>
+            </div>
+            <div class="nav-group" style="margin-top: auto;">
+                <a href="#" class="nav-item" onclick="switchTab('surveillance')"><i data-lucide="activity"></i><span data-i18n="tab_surv">My Surveillance</span></a>
+                <a href="#" class="nav-item" onclick="logout()" style="color: var(--danger);"><i data-lucide="log-out"></i><span data-i18n="logout">Secure Exit</span></a>
+            </div>
+        </aside>
+
+        <main class="main-container">
+            <header>
+                <div class="header-search">
+                    <i data-lucide="search" style="position: absolute; left: 1.25rem; top: 1.1rem; color: var(--text-muted); z-index: 10;"></i>
+                    <input type="text" data-i18n-placeholder="search_ph" placeholder="Search national records...">
+                </div>
+                <div style="display: flex; align-items: center; gap: 2rem;">
+                    <div style="text-align: right;">
+                        <p style="font-weight: 800; font-size: 1rem; color: var(--text-main);" id="user-display-name">Rajesh Kumar</p>
+                        <p style="font-size: 0.7rem; color: var(--primary); font-weight: 800; letter-spacing: 1px;" id="user-role-badge">CITIZEN REPOSITORY</p>
+                    </div>
+                    <div class="avatar-circle" style="width: 52px; height: 52px; border-radius: 16px; background: var(--primary-soft); display: flex; align-items: center; justify-content: center; border: 2.5px solid #fff; box-shadow: var(--shadow-sm);"><i data-lucide="user-round" color="var(--primary)"></i></div>
+                </div>
+            </header>
+
+            <div class="page-content" id="dashboard-view">
+                <div id="dashboard-payload"></div>
+            </div>
+
+            <div class="page-content" id="portal-view" style="display: none;">
+                <div id="portal-container"></div>
+            </div>
+        </main>
+    </div>
+
+    <!-- UI TOASTS -->
+    <div id="toast-container" style="position: fixed; bottom: 2rem; right: 2rem; z-index: 10000; display: flex; flex-direction: column; gap: 1rem;"></div>
+
+    <script src="app.js?v=13.0"></script>
+    <script>lucide.createIcons();</script>
+</body>
+</html>
