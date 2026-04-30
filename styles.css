@@ -2,17 +2,17 @@
 
 
 :root {
-    /* Master Design Tokens: Clinical Elite */
-    --primary: #10b981;
-    --primary-soft: #ecfdf5;
-    --primary-deep: #065f46;
+    /* Master Design Tokens: Clean Premium Light Mode */
+    --primary: #0284c7;
+    --primary-soft: #f0f9ff;
+    --primary-deep: #0369a1;
     --secondary: #6366f1;
-    --bg-main: #ffffff;
-    --bg-sub: #f8fafc;
+    --bg-main: #f8fafc;
+    --bg-sub: #ffffff;
     --border: #e2e8f0;
     --text-main: #0f172a;
-    --text-dim: #475569;
-    --text-muted: #94a3b8;
+    --text-dim: #334155;
+    --text-muted: #64748b;
     --danger: #ef4444;
     --warning: #f59e0b;
     --success: #10b981;
@@ -21,9 +21,9 @@
     --header-height: 80px;
     --radius-lg: 24px;
     --radius-md: 16px;
-    --shadow-sm: 0 1px 3px rgba(0,0,0,0.05);
-    --shadow-md: 0 10px 15px -3px rgba(0,0,0,0.1);
-    --shadow-xl: 0 25px 50px -12px rgba(0,0,0,0.25);
+    --shadow-sm: 0 4px 6px -1px rgba(0,0,0,0.5);
+    --shadow-md: 0 10px 15px -3px rgba(0,0,0,0.5);
+    --shadow-xl: 0 25px 50px -12px rgba(0,0,0,0.7);
     --transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
@@ -42,11 +42,11 @@ h1, h2, h3, h4, .heading-font {
 }
 
 /* --- Optimized Desktop Layout --- */
-.app-wrapper { display: flex; min-height: 100vh; background: #fbfcfd; }
+.app-wrapper { display: flex; min-height: 100vh; background: var(--bg-main); color: var(--text-main); }
 
 .sidebar {
     width: var(--sidebar-width);
-    background: #fff;
+    background: var(--bg-main);
     border-right: 1px solid var(--border);
     padding: 2rem 1.25rem;
     position: fixed;
@@ -91,7 +91,7 @@ h1, h2, h3, h4, .heading-font {
 .main-container { margin-left: var(--sidebar-width); flex: 1; min-width: 0; }
 header {
     height: var(--header-height);
-    background: rgba(255,255,255,0.85);
+    background: rgba(255, 255, 255, 0.85);
     backdrop-filter: blur(20px);
     border-bottom: 1px solid var(--border);
     display: flex;
@@ -108,23 +108,24 @@ header {
     width: 100%;
     padding: 0.85rem 1.25rem 0.85rem 3rem;
     background: var(--bg-sub);
-    border: 1.5px solid var(--border);
+    border: 1px solid var(--border);
     border-radius: 16px;
     font-size: 0.9rem;
+    color: var(--text-main);
     transition: var(--transition);
 }
 
-.header-search input:focus { border-color: var(--primary); background: #fff; box-shadow: 0 0 0 4px var(--primary-soft); }
+.header-search input:focus { border-color: var(--primary); background: var(--bg-main); box-shadow: 0 0 0 4px var(--primary-soft); }
 
 .page-content { padding: 3rem; max-width: 1600px; margin: 0 auto; }
 
 /* --- High-Density Dashboard Cards --- */
 .card {
-    background: #fff;
+    background: #ffffff;
     border: 1px solid var(--border);
     border-radius: var(--radius-lg);
     padding: 2rem;
-    box-shadow: var(--shadow-sm);
+    box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05);
     transition: var(--transition);
 }
 
@@ -170,7 +171,7 @@ header {
 .btn-primary:hover { background: var(--primary-deep); transform: scale(1.02); box-shadow: 0 10px 30px -5px rgba(16, 185, 129, 0.4); }
 
 .btn-ghost {
-    background: var(--bg-sub);
+    background: transparent;
     color: var(--text-dim);
     padding: 0.75rem 1.25rem;
     border-radius: 14px;
@@ -180,7 +181,7 @@ header {
     transition: var(--transition);
 }
 
-.btn-ghost:hover { border-color: var(--primary); color: var(--primary); background: #fff; }
+.btn-ghost:hover { border-color: var(--primary); color: var(--primary); background: var(--primary-soft); }
 
 /* --- MASTER AUTH GATEWAY --- */
 .auth-fullscreen {
@@ -188,8 +189,8 @@ header {
     inset: 0;
     z-index: 2000;
     background: #fbfcfd;
-    background-image: radial-gradient(at 0% 0%, hsla(161,71%,90%,1) 0, transparent 50%), 
-                      radial-gradient(at 100% 0%, hsla(222,47%,91%,1) 0, transparent 50%);
+    background-image: radial-gradient(at 0% 0%, rgba(2, 132, 199, 0.1) 0, transparent 50%), 
+                      radial-gradient(at 100% 0%, rgba(99, 102, 241, 0.1) 0, transparent 50%);
     display: flex;
     align-items: center;
     justify-content: center;
@@ -199,12 +200,13 @@ header {
 .auth-master-card {
     width: 100%;
     max-width: 500px;
-    background: rgba(255, 255, 255, 0.75);
+    background: rgba(255, 255, 255, 0.85);
     backdrop-filter: blur(40px);
-    border: 2px solid #fff;
+    border: 2px solid #ffffff;
     border-radius: 48px;
     padding: 3.5rem;
-    box-shadow: 0 50px 120px -20px rgba(0,0,0,0.1);
+    box-shadow: 0 25px 50px -12px rgba(0,0,0,0.1);
+    color: var(--text-main);
 }
 
 .official-seal {
@@ -212,8 +214,8 @@ header {
     align-items: center;
     gap: 1.25rem;
     padding: 1.25rem;
-    background: rgba(255,255,255,0.6);
-    border: 1px solid #fff;
+    background: rgba(255,255,255,0.8);
+    border: 1px solid #ffffff;
     border-radius: 24px;
     margin-bottom: 3rem;
 }
@@ -225,15 +227,15 @@ header {
 .synthesis-step {
     padding: 1.5rem;
     border-radius: 20px;
-    background: #fff;
+    background: var(--bg-sub);
     margin-bottom: 1.25rem;
     font-size: 0.95rem;
     font-weight: 700;
-    border: 2.5px solid transparent;
+    border: 1px solid var(--border);
     transition: var(--transition);
     text-align: left;
 }
-.synthesis-step.done { border-color: var(--primary); color: var(--primary-deep); box-shadow: var(--shadow-sm); }
+.synthesis-step.done { border-color: var(--primary); color: var(--primary-deep); box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05); background: var(--primary-soft); }
 
 /* --- Badges --- */
 .badge { padding: 0.5rem 1.25rem; border-radius: 100px; font-size: 0.75rem; font-weight: 800; text-transform: uppercase; letter-spacing: 1px; }

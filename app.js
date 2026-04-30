@@ -87,23 +87,11 @@ let CurrentLang = localStorage.getItem('hc_lang') || 'en';
 let CurrentRole = localStorage.getItem('hc_role') || 'patient';
 let CurrentUser = localStorage.getItem('hc_user') || 'Rajesh Kumar';
 
-let GlobalRecords = JSON.parse(localStorage.getItem('hc_records')) || [
-    { id: "REC-9901", type: "prescription", title: "Metformin 500mg", source: "AIIMS New Delhi", date: "12 Apr 2026", details: "Dosage: 1-0-1 | Duration: 90 Days" },
-    { id: "REC-8822", type: "report", title: "Complete Blood Count", source: "Apollo Diagnostics", date: "02 Mar 2026", details: "Hb: 14.2 g/dL | WBC: 7500 mm3" },
-    { id: "REC-7711", type: "document", title: "X-Ray Chest (Posterior)", source: "Max Healthcare", date: "20 Jan 2026", details: "No active pleuro-parenchymal lesions." }
-];
-
-let GlobalDocuments = JSON.parse(localStorage.getItem('hc_docs')) || [
-    { id: "DOC-101", name: "Aadhaar_Card_Self.pdf", size: "1.2 MB", date: "15 Jan 2026" },
-    { id: "DOC-102", name: "Pan_Card_Self.jpg", size: "850 KB", date: "15 Jan 2026" }
-];
-
-let EntityPermissions = JSON.parse(localStorage.getItem('hc_perms')) || [
-    { id: "ENT-01", name: "Dr. Anjali (AIIMS)", type: "doctor", status: true },
-    { id: "ENT-02", name: "Apollo Diagnostics", type: "lab", status: true },
-    { id: "ENT-03", name: "City Pharmacy Node", type: "pharmacy", status: true },
-    { id: "ENT-04", name: "Dr. Sameer (Max)", type: "doctor", status: false }
-];
+let GlobalRecords = [];
+let GlobalDocuments = [];
+let EntityPermissions = [];
+let GlobalProfessionals = [];
+let GlobalAppointments = [];
 
 let GlobalVitals = JSON.parse(localStorage.getItem('hc_vitals')) || [
     { date: "Apr 01", bp: "120/80", weight: 72 },
@@ -126,13 +114,65 @@ let GlobalInsurance = JSON.parse(localStorage.getItem('hc_insurance')) || {
 };
 
 document.addEventListener('DOMContentLoaded', () => {
-    initPersistence();
     initSidebar();
     applyLanguage(CurrentLang);
     document.getElementById('language-registry').value = CurrentLang;
-    if (localStorage.getItem('hc_session') === 'true') loginSuccess();
+    // Disabled auto-login so you can always see the login page for testing
+    // if (localStorage.getItem('hc_token')) loginSuccess();
     lucide.createIcons();
+    
+    // OFFLINE SUPPORT
+    window.addEventListener('online', () => document.getElementById('offline-banner').style.display = 'none');
+    window.addEventListener('offline', () => document.getElementById('offline-banner').style.display = 'block');
+    if (!navigator.onLine) document.getElementById('offline-banner').style.display = 'block';
 });
+
+async function apiFetch(endpoint, options = {}) {
+    const token = localStorage.getItem('hc_token');
+    const headers = {
+        'Content-Type': 'application/json',
+        ...(token ? {'Authorization': `Token ${token}`} : {}),
+        ...(options.headers || {})
+    };
+    
+    try {
+        const BASE_URL = window.location.port === '8001' ? '' : 'http://127.0.0.1:8001';
+        const res = await fetch(`${BASE_URL}/api${endpoint}`, { ...options, headers });
+        if (res.status === 401) { logout(); throw new Error("Unauthorized"); }
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || 'API Error');
+        
+        // Offline Cache Logic
+        if (!options.method || options.method === 'GET') {
+            localStorage.setItem(`hc_cache_${endpoint}`, JSON.stringify(data));
+        }
+        return data;
+    } catch (e) {
+        // Fallback to cache if offline
+        if (!navigator.onLine && (!options.method || options.method === 'GET')) {
+            const cached = localStorage.getItem(`hc_cache_${endpoint}`);
+            if (cached) return JSON.parse(cached);
+        }
+        throw e;
+    }
+}
+
+async function loadBackendData() {
+    try {
+        if(CurrentRole === 'patient') {
+            GlobalRecords = await apiFetch('/records/');
+            GlobalDocuments = await apiFetch('/documents/');
+            EntityPermissions = await apiFetch('/permissions/');
+            GlobalProfessionals = await apiFetch('/professionals/');
+            GlobalAppointments = await apiFetch('/appointments/');
+        } else {
+            GlobalRecords = await apiFetch('/records/');
+            GlobalAppointments = await apiFetch('/appointments/');
+        }
+    } catch(e) {
+        console.error("Failed to fetch data", e);
+    }
+}
 
 function applyLanguage(lang) {
     CurrentLang = lang;
@@ -150,7 +190,7 @@ function applyLanguage(lang) {
 
 function changeLanguage(lang) {
     applyLanguage(lang);
-    if (localStorage.getItem('hc_session') === 'true') {
+    if (localStorage.getItem('hc_token')) {
         if (document.getElementById('dashboard-view').style.display === 'block') renderDashboard();
         else renderTabContent(window.CurrentActiveTab || 'records');
     }
@@ -170,14 +210,31 @@ function selectRole(r, el) {
     el.classList.add('active');
 }
 
-function handleRegistration() {
+async function handleRegistration() {
     const n = document.getElementById('reg-name').value;
     if (!n) return showToast("Identify required", "error");
     CurrentRole = window.SelectedRoleSelection || 'patient';
-    CurrentUser = n;
-    localStorage.setItem('hc_role', CurrentRole);
-    localStorage.setItem('hc_user', CurrentUser);
-    toggleAuthView('login');
+    
+    try {
+        const BASE_URL = window.location.port === '8001' ? '' : 'http://127.0.0.1:8001';
+        const res = await fetch(`${BASE_URL}/api/auth/register/`, {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({ name: n, role: CurrentRole })
+        });
+        const text = await res.text();
+        let data;
+        try { data = JSON.parse(text); } catch(err) { throw new Error("Server returned: " + text.substring(0, 100)); }
+        
+        if (data.token) {
+            showToast("Registration Successful. Please Login.", "success");
+            toggleAuthView('login');
+        } else {
+            showToast(data.error || "Registration Failed", "error");
+        }
+    } catch (e) {
+        alert("Backend connection failed: " + e.message);
+    }
 }
 
 function sendOTP() {
@@ -185,20 +242,44 @@ function sendOTP() {
     document.getElementById('otp-step').style.display='block';
 }
 
-function verifyOTP() {
-    localStorage.setItem('hc_session','true');
-    loginSuccess();
+async function verifyOTP() {
+    const mobile = document.getElementById('mobile-input').value;
+    try {
+        const BASE_URL = window.location.port === '8001' ? '' : 'http://127.0.0.1:8001';
+        const res = await fetch(`${BASE_URL}/api/auth/login/`, {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({ phone: mobile })
+        });
+        const text = await res.text();
+        let data;
+        try { data = JSON.parse(text); } catch(err) { throw new Error("Server returned: " + text.substring(0, 100)); }
+        
+        if (data.token) {
+            localStorage.setItem('hc_token', data.token);
+            CurrentUser = data.user.username;
+            CurrentRole = data.user.profile.role;
+            localStorage.setItem('hc_user', CurrentUser);
+            localStorage.setItem('hc_role', CurrentRole);
+            loginSuccess();
+        } else {
+            showToast("Invalid credentials", "error");
+        }
+    } catch (e) {
+        alert("Backend connection failed: " + e.message);
+    }
 }
 
-function loginSuccess() {
+async function loginSuccess() {
     document.getElementById('auth-overlay').style.display='none';
     document.getElementById('user-display-name').textContent = CurrentUser;
     document.getElementById('user-role-badge').textContent = (TranslationDB[CurrentLang][`role_${CurrentRole}`] || CurrentRole).toUpperCase();
+    await loadBackendData();
     if (CurrentRole !== 'patient') switchRole(CurrentRole);
     else renderDashboard();
 }
 
-function logout() { localStorage.removeItem('hc_session'); location.reload(); }
+function logout() { localStorage.removeItem('hc_token'); localStorage.removeItem('hc_session'); location.reload(); }
 
 // --- DASHBOARD (PATIENT) ---
 function renderDashboard() {
@@ -257,6 +338,19 @@ function renderDashboard() {
             </div>
 
             <div style="display:flex; flex-direction:column; gap:2.5rem;">
+                <!-- Health Score Widget -->
+                <div class="card" style="display:flex; align-items:center; gap: 2rem; border-top:5px solid var(--success);">
+                    <div style="position:relative; width:80px; height:80px; border-radius:50%; background:conic-gradient(var(--success) 85%, var(--border) 0); display:flex; align-items:center; justify-content:center; box-shadow: 0 4px 10px rgba(16, 185, 129, 0.2);">
+                        <div style="width:64px; height:64px; background:var(--bg-sub); border-radius:50%; display:flex; align-items:center; justify-content:center; flex-direction:column;">
+                            <span style="font-weight:800; font-size:1.4rem; color:var(--text-main); line-height:1;">85</span>
+                        </div>
+                    </div>
+                    <div>
+                        <p style="font-size:0.75rem; font-weight:800; color:var(--text-muted); text-transform:uppercase; letter-spacing:1px;">Dynamic Health Score</p>
+                        <h3 style="color:var(--success); margin-top:0.25rem;">Excellent <i data-lucide="trending-up" size="18"></i></h3>
+                    </div>
+                </div>
+
                 <!-- National Health Pass -->
                 <div class="card" style="background:var(--primary-deep); color:#fff; border-radius:32px;">
                     <p style="font-size:0.6rem; letter-spacing:2px; font-weight:800; opacity:0.7;">NATIONAL HEALTH PASS</p>
@@ -340,7 +434,37 @@ function renderTabContent(t) {
     const heading = (title, icon) => `<div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:3rem;"><div style="display:flex; align-items:center; gap:1.25rem;"><div style="background:var(--primary-soft); padding:1rem; border-radius:16px;"><i data-lucide="${icon}" color="var(--primary)" size="28"></i></div><h1 class="heading-font">${title}</h1></div></div>`;
     
     let html = "";
-    if (t === 'records') {
+    if (t === 'appointments') {
+        html = `${heading('Appointments', 'calendar')}
+            <div class="pro-form-group" style="margin-top: 0; margin-bottom: 2rem;">
+                <h3 style="margin-bottom: 1.5rem;">Schedule New Visit</h3>
+                <div style="display:flex; gap: 1rem; margin-bottom: 1rem;">
+                    <select id="appt-prof" style="flex:1; padding:1rem; border-radius:12px; border:1px solid var(--border);">
+                        <option value="">Select Professional / Hospital</option>
+                        ${GlobalProfessionals.map(p => `<option value="${p.id}">${p.name} (${p.role})</option>`).join('')}
+                    </select>
+                    <input type="date" id="appt-date" style="flex:1;">
+                    <input type="time" id="appt-time" style="flex:0.5;">
+                </div>
+                <input type="text" id="appt-reason" placeholder="Reason for visit (e.g. Regular Checkup)" style="width:100%; margin-bottom:1.5rem;">
+                <button class="btn-primary" onclick="bookAppointment()"><i data-lucide="check-circle"></i> Confirm Booking</button>
+            </div>
+            
+            <h3 style="margin-bottom: 1rem;">Scheduled Visits</h3>
+            <div style="display:grid; gap:1rem;">
+                ${GlobalAppointments.length > 0 ? GlobalAppointments.map(a => `
+                <div class="card" style="display:flex; justify-content:space-between; align-items:center; padding:1.5rem; border-left: 4px solid var(--primary);">
+                    <div style="display:flex; gap:1.5rem; align-items:center;">
+                        <div style="background:var(--primary-soft); padding:1rem; border-radius:14px;"><i data-lucide="calendar-clock" color="var(--primary)"></i></div>
+                        <div>
+                            <h4 style="font-weight:800; font-size:1.1rem;">${a.professional_name || a.patient_name}</h4>
+                            <p style="font-size:0.85rem; color:var(--text-dim); margin-top: 0.25rem;">${a.date} at ${a.time} • <span style="opacity: 0.8;">${a.reason}</span></p>
+                        </div>
+                    </div>
+                    <span class="badge" style="background: var(--primary-soft); color: var(--primary);">${a.status}</span>
+                </div>`).join('') : '<p style="color:var(--text-muted);">No upcoming appointments.</p>'}
+            </div>`;
+    } else if (t === 'records') {
         html = `${heading(s.tab_records, 'folder-heart')}
             <div style="display:grid; grid-template-columns: repeat(auto-fill, minmax(400px, 1fr)); gap:1.5rem;">
                 ${GlobalRecords.map(r => `
@@ -356,10 +480,15 @@ function renderTabContent(t) {
             </div>`;
     } else if (t === 'documents') {
         html = `${heading(s.tab_docs, 'file-text')}
-            <div class="card" style="border:2.5px dashed var(--border); text-align:center; padding:4rem; margin-bottom:2rem; cursor:pointer;" onclick="uploadFilePrompt()">
-                <i data-lucide="upload-cloud" size="48" color="var(--text-muted)" style="margin-bottom:1.5rem;"></i>
-                <h3 style="color:var(--text-dim);">Drop Personal Medical Documents Here</h3>
-                <p style="font-size:0.85rem; color:var(--text-muted); margin-top:0.5rem;">PDF, JPG, PNG supported (Max 10MB)</p>
+            <div class="pro-form-group" style="margin-top: 0; margin-bottom: 2rem;">
+                <h3 style="margin-bottom: 1.5rem;">Secure Document Upload</h3>
+                <input type="text" id="upload-doc-name" placeholder="Document Name (e.g. Lab Report March 2026)">
+                <div style="display:flex; gap: 1rem; margin-bottom: 1rem;">
+                    <div style="flex: 1; border: 2px dashed var(--border); padding: 1rem; border-radius: 12px; text-align: center; color: var(--text-muted); cursor: pointer;">
+                        Select File (PDF, JPG, PNG)
+                    </div>
+                </div>
+                <button class="btn-primary" onclick="submitDocument()"><i data-lucide="upload"></i> Upload to Vault</button>
             </div>
             <div style="display:grid; gap:1rem;">
                 ${GlobalDocuments.map(d => `<div class="card" style="display:flex; justify-content:space-between; align-items:center; padding:1.5rem;">
@@ -383,18 +512,23 @@ function renderTabContent(t) {
     } else if (t === 'consent') {
         html = `${heading(s.tab_privacy, 'user-check')}
             <div style="display:grid; gap:1.5rem;">
-                ${EntityPermissions.map(p => `
-                    <div class="permission-card">
+                ${GlobalProfessionals.map(p => {
+                    const isAccepted = EntityPermissions.some(ep => ep.granted_to === p.id && ep.status === true);
+                    return `
+                    <div class="permission-card" style="${isAccepted ? 'border-color: var(--primary); background: var(--primary-soft);' : ''}">
                         <div style="display:flex; gap:1.5rem; align-items:center;">
-                            <div style="background:var(--bg-sub); padding:1rem; border-radius:14px;"><i data-lucide="${p.type==='doctor'?'user':'microscope'}"></i></div>
+                            <div style="background:var(--bg-sub); padding:1rem; border-radius:14px;"><i data-lucide="${p.role==='doctor'?'user':p.role==='lab'?'microscope':'pill'}"></i></div>
                             <div>
                                 <h4 style="font-weight:800; font-size:1.1rem;">${p.name}</h4>
-                                <p style="font-size:0.85rem; color:var(--text-muted); text-transform:uppercase;">${p.type}</p>
+                                <p style="font-size:0.85rem; color:var(--text-muted); text-transform:uppercase;">${p.role}</p>
                             </div>
                         </div>
-                        <div class="toggle-switch ${p.status?'active':''}" onclick="togglePermission('${p.id}')"></div>
+                        <div style="display:flex; gap:0.75rem;">
+                            <button class="btn-primary" style="${isAccepted ? 'background: var(--primary-deep);' : ''} padding: 0.5rem 1rem;" onclick="handleConsent(${p.id}, true)">Accept</button>
+                            <button class="btn-ghost" style="color: var(--danger); border-color: var(--danger); padding: 0.5rem 1rem;" onclick="handleConsent(${p.id}, false)">Decline</button>
+                        </div>
                     </div>
-                `).join('')}
+                `}).join('')}
             </div>`;
     } else if (t === 'surveillance') {
         html = `${heading(s.tab_surv, 'activity')}
@@ -472,25 +606,26 @@ function switchRole(role) {
     lucide.createIcons();
 }
 
-function submitProfessionalRecord(type) {
+async function submitProfessionalRecord(type) {
     const title = document.getElementById(type==='prescription'?'dr-rx-title':type==='report'?'lab-report-title':'ph-doc-title').value;
     const details = document.getElementById(type==='prescription'?'dr-rx-details':type==='report'?'lab-report-details':'ph-doc-details').value;
     
     if (!title || !details) return showToast("Clinical Data Required", "error");
     
-    const newRecord = {
-        id: "REC-" + Date.now(),
-        type: type,
-        title: title,
-        source: CurrentUser + " (Professional)",
-        date: "Just Now",
-        details: details
-    };
-    
-    GlobalRecords.unshift(newRecord);
-    syncDB();
-    showToast("Record Pushed to Citizen Vault", "success");
-    location.reload(); // Refresh to see changes
+    try {
+        await apiFetch('/records/', {
+            method: 'POST',
+            body: JSON.stringify({
+                type: type,
+                title: title,
+                details: details
+            })
+        });
+        showToast("Record Pushed to Vault", "success");
+        setTimeout(async () => { await loadBackendData(); renderTabContent(window.CurrentActiveTab || 'dashboard'); }, 1000);
+    } catch(e) {
+        showToast("Upload failed", "error");
+    }
 }
 
 // --- AI SYMPTOMS CORE v3.0 ---
@@ -533,31 +668,59 @@ function executeAIv3() {
 }
 
 // --- UTILS & SYNC ---
-function uploadFilePrompt() {
-    const name = prompt("Enter Document Name:");
-    if (!name) return;
-    GlobalDocuments.unshift({ id: "DOC-"+Date.now(), name: name + ".pdf", size: "Unknown", date: "Today" });
-    syncDB();
-    renderTabContent('documents');
-    showToast("Document Encrypted & Saved", "success");
+function uploadFilePrompt() { }
+
+async function submitDocument() {
+    const name = document.getElementById('upload-doc-name').value;
+    if (!name) return showToast("Document Name is required", "error");
+    try {
+        await apiFetch('/documents/', {
+            method: 'POST',
+            body: JSON.stringify({ name: name + ".pdf", size: "1.2 MB" })
+        });
+        showToast("Document Encrypted & Saved", "success");
+        setTimeout(async () => { await loadBackendData(); renderTabContent(window.CurrentActiveTab || 'dashboard'); }, 1000);
+    } catch(e) {
+        showToast("Upload Failed", "error");
+    }
 }
 
-function togglePermission(id) {
-    const p = EntityPermissions.find(p=>p.id===id);
-    if (p) p.status = !p.status;
-    syncDB();
-    renderTabContent('consent');
-    showToast(p.status ? "Entity Authorized" : "Entity Revoked", p.status ? "success" : "error");
+async function handleConsent(profId, statusVal) {
+    try {
+        await apiFetch('/permissions/toggle/', {
+            method: 'POST',
+            body: JSON.stringify({ granted_to_id: profId, status: statusVal })
+        });
+        showToast(statusVal ? "Access Granted" : "Access Revoked", "success");
+        setTimeout(async () => { await loadBackendData(); renderTabContent(window.CurrentActiveTab || 'dashboard'); }, 500);
+    } catch(e) {
+        showToast("Consent Update Failed", "error");
+    }
 }
 
-function syncDB() {
-    localStorage.setItem('hc_records', JSON.stringify(GlobalRecords));
-    localStorage.setItem('hc_docs', JSON.stringify(GlobalDocuments));
-    localStorage.setItem('hc_perms', JSON.stringify(EntityPermissions));
-    localStorage.setItem('hc_vitals', JSON.stringify(GlobalVitals));
+async function bookAppointment() {
+    const profId = document.getElementById('appt-prof').value;
+    const date = document.getElementById('appt-date').value;
+    const time = document.getElementById('appt-time').value;
+    const reason = document.getElementById('appt-reason').value;
+    
+    if (!profId || !date || !time || !reason) return showToast("All fields required", "error");
+    
+    try {
+        await apiFetch('/appointments/', {
+            method: 'POST',
+            body: JSON.stringify({ professional: profId, date, time, reason })
+        });
+        showToast("Appointment Booked Successfully", "success");
+        setTimeout(async () => { await loadBackendData(); renderTabContent(window.CurrentActiveTab || 'dashboard'); }, 1000);
+    } catch(e) {
+        showToast("Booking Failed", "error");
+    }
 }
 
-function initPersistence() { syncDB(); }
+function togglePermission(id) { }
+
+function initPersistence() { /* Removed localstorage sync */ }
 function initSidebar() { document.querySelectorAll('.nav-item').forEach(item => { item.addEventListener('click', function() { document.querySelectorAll('.nav-item').forEach(i => i.classList.remove('active')); this.classList.add('active'); }); }); }
 function showToast(m, t) {
     const cont = document.getElementById('toast-container');

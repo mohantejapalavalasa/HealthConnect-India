@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>HealthConnect Enterprise | National Integrated Health Core</title>
-    <link rel="stylesheet" href="styles.css?v=13.0">
+    <link rel="stylesheet" href="./styles.css?v=13.0">
     <script src="https://unpkg.com/lucide@latest"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <style>
@@ -28,7 +28,10 @@
     </style>
 </head>
 <body>
-
+    <!-- OFFLINE BANNER -->
+    <div id="offline-banner" style="display: none; background: var(--warning); color: #fff; text-align: center; padding: 0.5rem; font-weight: 800; font-size: 0.85rem; position: fixed; top: 0; left: 0; right: 0; z-index: 10000; box-shadow: var(--shadow-sm);">
+        <i data-lucide="wifi-off" size="14" style="margin-right: 5px;"></i> You are currently offline. Viewing safely cached data.
+    </div>
     <!-- AUTHENTICATION CORE -->
     <div id="auth-overlay" class="auth-fullscreen">
         <div class="lang-select">
@@ -69,7 +72,7 @@
                     <input type="text" id="mobile-input" placeholder="91-XXXX-XXXX-XXXX">
                 </div>
                 
-                <button class="btn-primary" style="width: 100%; height: 64px;" onclick="sendOTP()">
+                <button class="btn-primary" style="width: 100%; height: 64px;"  onclick="sendOTP()">
                     <span data-i18n="login_btn">Request Access</span>
                     <i data-lucide="arrow-right"></i>
                 </button>
@@ -123,6 +126,7 @@
             <div class="nav-group">
                 <span class="nav-label" data-i18n="nav_gov">Citizen Repository</span>
                 <a href="#" class="nav-item active" onclick="switchTab('dashboard')"><i data-lucide="layout-grid"></i><span data-i18n="tab_dash">My Dashboard</span></a>
+                <a href="#" class="nav-item" onclick="switchTab('appointments')"><i data-lucide="calendar"></i><span>Appointments</span></a>
                 <a href="#" class="nav-item" onclick="switchTab('records')"><i data-lucide="folder-heart"></i><span data-i18n="tab_records">My Health Vault</span></a>
                 <a href="#" class="nav-item" onclick="switchTab('documents')"><i data-lucide="file-text"></i><span data-i18n="tab_docs">Documents Hub</span></a>
                 <a href="#" class="nav-item" onclick="switchTab('identity')"><i data-lucide="venn-diagram"></i><span data-i18n="tab_identity">Legal Identity</span></a>
@@ -169,7 +173,14 @@
     <!-- UI TOASTS -->
     <div id="toast-container" style="position: fixed; bottom: 2rem; right: 2rem; z-index: 10000; display: flex; flex-direction: column; gap: 1rem;"></div>
 
-    <script src="app.js?v=13.0"></script>
-    <script>lucide.createIcons();</script>
+    <script src="./app.js?v=13.0"></script>
+    <script>
+        lucide.createIcons();
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+                navigator.serviceWorker.register('/sw.js').catch(err => console.error("SW Registration Failed:", err));
+            });
+        }
+    </script>
 </body>
 </html>
